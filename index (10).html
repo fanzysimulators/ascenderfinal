@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ascender</title>
+  <!-- Import retro-style fonts similar to the Push Me game -->
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    /* Root colour palette inspired by winter nights and camp fires */
+    :root {
+      --dark-bg: #041018;
+      --panel-bg: rgba(9, 16, 23, 0.88);
+      --wood: #8f6e4b;
+      --accent: #a8c5de;
+      --highlight: #eaa651;
+      --danger: #c95f5f;
+      --success: #7cc98a;
+      --text-light: #e0e8f0;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Press Start 2P', sans-serif;
+      background: radial-gradient(circle at 50% 20%, #0d2334, var(--dark-bg));
+      color: var(--text-light);
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* Snow overlay */
+    #snow {
+      pointer-events: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+      z-index: 1;
+    }
+    .flake {
+      position: absolute;
+      top: -10px;
+      width: 4px;
+      height: 4px;
+      background: var(--accent);
+      border-radius: 50%;
+      opacity: 0.8;
+      animation: fall linear infinite;
+    }
+    @keyframes fall {
+      to {
+        transform: translateY(110vh);
+      }
+    }
+
+    /* Shared panel styling */
+    .panel {
+      background: var(--panel-bg);
+      border: 2px solid var(--wood);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    }
+    button {
+      font-family: 'Press Start 2P', sans-serif;
+      font-size: 0.8rem;
+      padding: 0.6rem 1.2rem;
+      border: 2px solid var(--wood);
+      border-radius: 6px;
+      background: linear-gradient(135deg, rgba(120,90,60,0.95), rgba(60,40,25,0.95));
+      color: var(--text-light);
+      cursor: pointer;
+      box-shadow: inset 0 0 6px rgba(0,0,0,0.6), 0 0 10px rgba(255,180,100,0.2);
+      transition: transform 0.2s;
+    }
+    button:hover { transform: scale(1.05); }
+
+    /* Menu screen */
+    #menu {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 10;
+    }
+    #menu h1 {
+      font-size: 2.5rem;
+      color: var(--highlight);
+      margin-bottom: 1rem;
+    }
+    #menu p {
+      font-size: 0.8rem;
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+
+    /* HUD */
+    #hud {
+      display: none;
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 0.5rem 1rem;
+      border: 2px solid var(--wood);
+      border-radius: 8px;
+      background: var(--panel-bg);
+      z-index: 9;
+      font-size: 0.8rem;
+    }
+
+    /* Phase containers */
+    #phase1, #phase2, #phase3 {
+      display: none;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 5;
+    }
+
+    /* Custom layout for phase1: additional styling for instructions */
+    #phase1-instructions-box {
+      margin-bottom: 1rem;
+      width: 360px;
+      text-align: center;
+      font-size: 0.6rem;
+    }
+
+    /* Rope climb visuals */
+    #ropeArea {
+      position: relative;
+      width: 360px;
+      /* extend the height considerably so the climb takes longer */
+      height: 600px;
+      border: 2px solid var(--wood);
+      border-radius: 12px;
+      background: rgba(4,16,24,0.8);
+      display: flex;
+      padding: 1rem;
+    }
+    #rope {
+      width: 40px;
+      height: 100%;
+      background: linear-gradient(to bottom, #614833 0%, #4a351f 100%);
+      margin-right: 1rem;
+      position: relative;
+    }
+    #climber {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 40px;
+      height: 40px;
+      background: radial-gradient(circle at 30% 30%, #b5c5d6, #4a6985);
+      border: 2px solid var(--wood);
+      border-radius: 4px;
+    }
+    #climbProgress {
+      position: relative;
+      flex: 1;
+      background: rgba(255,255,255,0.05);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    #climbProgress .fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 0%;
+      background: linear-gradient(to top, var(--highlight), var(--success));
+      transition: height 0.1s;
+    }
+
+    /* climb click button styling */
+    .climb-btn {
+      position: fixed;
+      z-index: 15;
+      font-family: 'Press Start 2P', sans-serif;
+      font-size: 0.8rem;
+      padding: 0.5rem 1rem;
+      border: 2px solid var(--wood);
+      border-radius: 6px;
+      background: linear-gradient(135deg, rgba(120,90,60,0.95), rgba(60,40,25,0.95));
+      color: var(--text-light);
+      cursor: pointer;
+      box-shadow: inset 0 0 6px rgba(0,0,0,0.6), 0 0 10px rgba(255,180,100,0.2);
+    }
+
+    /* Basket pull visuals */
+    #basketArea {
+      position: relative;
+      /* widen the basket area even more to give more room for the bar and progress */
+      width: 750px;
+      height: 350px;
+      border: 2px solid var(--wood);
+      border-radius: 12px;
+      background: rgba(4,16,24,0.8);
+      padding: 1rem;
+      text-align: center;
+    }
+#powerBarWrapper {
+  position: relative;
+  width: 100%;
+  height: 40px;
+  margin: 1rem 0;
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+  overflow: visible;   /* was hidden */
+}
+
+#powerBar {
+  position: absolute;
+  top: -14px; /* -18px, -12px, etc – adjust to taste */
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 16px solid var(--highlight); /* size / color of arrow */
+}
+
+    #greenZone {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      background: var(--success);
+      opacity: 0.4;
+      border-radius: 6px;
+    }
+    /* Horizontal basket progress bar */
+    #basketProgress {
+      position: relative;
+      width: 100%;
+      height: 20px;
+      /* push it further below the power bar to avoid overlap */
+      margin-top: 2rem;
+      border: 2px solid var(--wood);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      overflow: hidden;
+    }
+    #basketProgress .fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: 0;
+      background: linear-gradient(to right, var(--highlight), var(--success));
+      transition: width 0.2s;
+    }
+    #pullBtn {
+      margin-top: 0.5rem;
+    }
+    #phase2-instructions {
+      margin-top: 1rem;
+      font-size: 0.6rem;
+      text-align: center;
+    }
+
+    /* Puzzle area */
+    #puzzleContainer {
+      position: relative;
+      width: 550px;
+      height: 520px;
+      border: 2px solid var(--wood);
+      border-radius: 12px;
+      background: rgba(4,16,24,0.85);
+      padding: 1rem;
+    }
+    #board {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 300px;
+      height: 300px;
+      background: rgba(255,255,255,0.03);
+      border: 2px solid var(--wood);
+      border-radius: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      pointer-events: none;
+    }
+    #board .cell {
+      width: 20%;
+      height: 20%;
+      border: 1px dotted rgba(255,255,255,0.05);
+    }
+    /* Ensure pieces appear above the board */
+    #board {
+      z-index: 1;
+    }
+    #pieces {
+      /* Place the tray of puzzle pieces below the board instead of absolutely at the bottom. */
+      position: static;
+      margin-top: 320px; /* 300px board height + a little spacing */
+      display: flex;
+      gap: 0.5rem;
+    }
+    .piece {
+      position: absolute;
+      display: grid;
+      /* Width, height, and grid dimensions will be set dynamically per piece to fit the shape bounds. */
+      cursor: grab;
+      transition: box-shadow 0.2s;
+      z-index: 5;
+    }
+    .square {
+      width: 60px;
+      height: 60px;
+      background: var(--accent);
+      border: 1px solid rgba(0,0,0,0.3);
+      box-shadow: inset 0 0 4px rgba(0,0,0,0.6);
+    }
+    /* Hide rotate button style since pieces no longer rotate */
+    .rotate-btn {
+      display: none;
+    }
+    #phase3-instructions {
+      position: absolute;
+      top: 310px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      font-size: 0.6rem;
+      text-align: center;
+    }
+
+    /* End screen */
+    #endScreen {
+      display: none;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 12;
+      text-align: center;
+    }
+    #endScreen h2 {
+      color: var(--highlight);
+      margin-bottom: 1rem;
+    }
+    #endScreen p { margin-bottom: 1rem; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <!-- Snow effect container -->
+  <div id="snow"></div>
+  <!-- Menu -->
+  <div id="menu" class="panel">
+    <h1>Ascender</h1>
+    <p>Test your reflexes and wits! Click the buttons that appear to climb the rope, time your clicks to lower the basket, and then drag the pieces to complete the puzzle. Good luck!</p>
+    <button id="playBtn">PLAY</button>
+  </div>
+  <!-- HUD -->
+  <div id="hud">
+    <!-- Canvas to draw the timer as an image so it cannot be edited via DOM -->
+    <canvas id="timeCanvas" width="180" height="28"></canvas>
+  </div>
+  <!-- Phase 1: Rope Climb -->
+  <div id="phase1">
+    <div id="phase1-instructions-box" class="panel">Click the appearing buttons to climb the rope. Each click raises you slightly, but the rope will slip down if you wait too long!</div>
+    <div id="ropeArea">
+      <div id="rope">
+        <div id="climber"></div>
+      </div>
+      <div id="climbProgress">
+        <div class="fill" id="climbFill"></div>
+      </div>
+    </div>
+  </div>
+  <!-- Phase 2: Basket Pull -->
+  <div id="phase2" class="panel">
+    <div id="basketArea">
+      <div id="powerBarWrapper">
+        <div id="greenZone"></div>
+        <div id="powerBar"></div>
+      </div>
+      <!-- horizontal basket progress below the power bar wrapper -->
+      <div id="basketProgress">
+        <div class="fill" id="basketFill"></div>
+      </div>
+      <!-- dedicated pull button below the bar -->
+      <button id="pullBtn">CLICK</button>
+      <div id="phase2-instructions">Click the button when the bar passes through the green zone to lower the basket.</div>
+    </div>
+  </div>
+  <!-- Phase 3: Puzzle -->
+  <div id="phase3" class="panel">
+    <div id="puzzleContainer">
+      <div id="board"></div>
+      <div id="pieces"></div>
+      <div id="phase3-instructions">Drag pieces into the grid. Click the small circle on a piece to rotate it. Fill the 5×5 grid completely.</div>
+    </div>
+  </div>
+  <!-- End Screen -->
+  <div id="endScreen" class="panel">
+    <h2>Well done!</h2>
+    <p>You completed the challenge in</p>
+    <!-- Canvas for final time so it cannot be edited via DOM -->
+    <canvas id="finalTimeCanvas" width="220" height="28"></canvas>
+    <button id="restartBtn">PLAY AGAIN</button>
+  </div>
+
+  <script>
+    /* Snowfall effect generation */
+    const snowContainer = document.getElementById('snow');
+    // Generate 100 snowflakes with random delay and duration
+    for (let i = 0; i < 80; i++) {
+      const flake = document.createElement('div');
+      flake.className = 'flake';
+      const size = Math.random() * 3 + 2;
+      flake.style.width = size + 'px';
+      flake.style.height = size + 'px';
+      flake.style.left = Math.random() * 100 + 'vw';
+      flake.style.animationDuration = (5 + Math.random() * 5) + 's';
+      flake.style.animationDelay = (-Math.random() * 5) + 's';
+      snowContainer.appendChild(flake);
+    }
+
+    const playBtn = document.getElementById('playBtn');
+    const menu = document.getElementById('menu');
+    const hud = document.getElementById('hud');
+    const timeDisplay = document.getElementById('timeDisplay');
+    const endScreen = document.getElementById('endScreen');
+    // finalTimeSpan element has been replaced by a canvas; this constant remains for backward compatibility but is unused.
+    const restartBtn = document.getElementById('restartBtn');
+
+    const phase1 = document.getElementById('phase1');
+    const phase2 = document.getElementById('phase2');
+    const phase3 = document.getElementById('phase3');
+
+    // Canvas elements for timer display to prevent DOM editing
+    const timeCanvas = document.getElementById('timeCanvas');
+    const timeCtx = timeCanvas.getContext('2d');
+    const finalTimeCanvas = document.getElementById('finalTimeCanvas');
+    const finalCtx = finalTimeCanvas.getContext('2d');
+
+    /**
+     * Draw the current timer value onto the HUD canvas.
+     * This renders the time as an image, preventing editing via the DOM.
+     */
+    function updateTimeCanvas() {
+      const w = timeCanvas.width;
+      const h = timeCanvas.height;
+      timeCtx.clearRect(0, 0, w, h);
+      // Use CSS custom property for colour or fallback highlight
+      const highlight = getComputedStyle(document.documentElement).getPropertyValue('--highlight') || '#eaa651';
+      timeCtx.fillStyle = highlight.trim();
+      timeCtx.font = '16px "Press Start 2P", sans-serif';
+      timeCtx.textAlign = 'center';
+      timeCtx.textBaseline = 'middle';
+      const text = 'Time: ' + timer.toFixed(1) + 's';
+      timeCtx.fillText(text, w / 2, h / 2);
+    }
+
+    /**
+     * Draw the final time onto the end screen canvas.
+     * The result is rendered as an image to avoid DOM manipulation.
+     * @param {number} timeVal Seconds elapsed
+     */
+    function updateFinalTimeCanvas(timeVal) {
+      const w = finalTimeCanvas.width;
+      const h = finalTimeCanvas.height;
+      finalCtx.clearRect(0, 0, w, h);
+      const highlight = getComputedStyle(document.documentElement).getPropertyValue('--highlight') || '#eaa651';
+      finalCtx.fillStyle = highlight.trim();
+      finalCtx.font = '16px "Press Start 2P", sans-serif';
+      finalCtx.textAlign = 'center';
+      finalCtx.textBaseline = 'middle';
+      const text = timeVal.toFixed(1) + 's';
+      finalCtx.fillText(text, w / 2, h / 2);
+    }
+
+    // Phase 1 elements
+    const climber = document.getElementById('climber');
+    const climbFill = document.getElementById('climbFill');
+
+    // Phase 2 elements
+    const powerBar = document.getElementById('powerBar');
+    const greenZone = document.getElementById('greenZone');
+    const basketFill = document.getElementById('basketFill');
+
+    // Phase 3 elements
+    const board = document.getElementById('board');
+    const piecesContainer = document.getElementById('pieces');
+
+    let timer = 0;
+    let timeInterval;
+    let gameStarted = false;
+
+    function startTimer() {
+      timer = 0;
+      // Update the canvas immediately with 0.0 seconds
+      updateTimeCanvas();
+      timeInterval = setInterval(() => {
+        timer += 0.1;
+        updateTimeCanvas();
+      }, 100);
+    }
+    function stopTimer() {
+      clearInterval(timeInterval);
+    }
+
+    function showPhase(element) {
+      phase1.style.display = 'none';
+      phase2.style.display = 'none';
+      phase3.style.display = 'none';
+      // If showing phase1, use flex to centre its children; otherwise use block
+      if (element === phase1) {
+        element.style.display = 'flex';
+        element.style.flexDirection = 'column';
+        element.style.alignItems = 'center';
+      } else {
+        element.style.display = 'block';
+      }
+    }
+
+    // ************** Phase 1: Rope Climb **************
+    let climbProgress = 0;
+    let climbDecayInterval;
+    let climbBtnEl = null;
+    /** Spawn a clickable button at a random screen location. Each click raises the rope a bit */
+    function spawnClimbButton() {
+      // remove existing button if present
+      if (climbBtnEl) {
+        climbBtnEl.remove();
+        climbBtnEl = null;
+      }
+      // create new button
+      const btn = document.createElement('button');
+      btn.className = 'climb-btn';
+      btn.textContent = 'CLICK';
+      // random position within viewport (avoid HUD and menu area)
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const btnWidth = 100;
+      const btnHeight = 40;
+      const maxX = Math.max(0, vw - btnWidth - 20);
+      const maxY = Math.max(0, vh - btnHeight - 80);
+      const left = Math.random() * maxX;
+      const top = 60 + Math.random() * (maxY - 60);
+      btn.style.left = left + 'px';
+      btn.style.top = top + 'px';
+      btn.addEventListener('click', () => {
+        // increment progress by a bit more so the climb feels achievable
+        climbProgress += 5;
+        if (climbProgress > 100) climbProgress = 100;
+        updateClimbUI();
+        // spawn next button
+        spawnClimbButton();
+        // check completion
+        if (climbProgress >= 100) {
+          endPhase1();
+        }
+      });
+      document.body.appendChild(btn);
+      climbBtnEl = btn;
+    }
+    function startPhase1() {
+      showPhase(phase1);
+      climbProgress = 0;
+      climbFill.style.height = '0%';
+      // position climber at bottom
+      climber.style.bottom = '0%';
+      // spawn first climb button
+      spawnClimbButton();
+      // start decay interval: progress slowly decreases over time
+      climbDecayInterval = setInterval(() => {
+        if (climbProgress > 0) {
+          // decay the progress gradually but slower than before so it's less punishing
+          climbProgress -= 0.25;
+          if (climbProgress < 0) climbProgress = 0;
+          updateClimbUI();
+        }
+      }, 200);
+    }
+    function updateClimbUI() {
+      climbFill.style.height = climbProgress + '%';
+      climber.style.bottom = climbProgress + '%';
+    }
+    function endPhase1() {
+      // remove decay interval
+      clearInterval(climbDecayInterval);
+      // remove any climb button
+      if (climbBtnEl) {
+        climbBtnEl.remove();
+        climbBtnEl = null;
+      }
+      startPhase2();
+    }
+
+    // ************** Phase 2: Basket Pull **************
+    let powerPos = 0;
+    let powerDir = 1;
+    let powerAnim;
+let basketProgressVal = 0;
+let basketDecayInterval;
+
+    /**
+     * Randomise the position and width of the green zone on the power bar.
+     * The zone is made intentionally narrow to make timing harder.
+     */
+    function setGreenZone() {
+      // zone width between 8% and 16% of the wrapper
+      const width = 8 + Math.random() * 8;
+      // zone start anywhere such that zone fully fits inside 0-100%
+      const start = Math.random() * (100 - width);
+      greenZone.style.left = start + '%';
+      greenZone.style.width = width + '%';
+    }
+    function startPhase2() {
+      showPhase(phase2);
+      // Reset values
+      basketProgressVal = 0;
+      basketFill.style.width = '0%';
+      // configure a new green zone
+      setGreenZone();
+      // Start oscillating power bar across the entire wrapper
+      powerPos = 0;
+      powerDir = 1;
+      function animatePower() {
+        powerPos += powerDir * 0.3;
+        // bounce at edges of the wrapper (arrow has no width)
+        if (powerPos <= 0 || powerPos >= 100) {
+          powerDir *= -1;
+        }
+        powerBar.style.left = powerPos + '%';
+        powerAnim = requestAnimationFrame(animatePower);
+      }
+      animatePower();
+      // Start decay of basket progress
+      basketDecayInterval = setInterval(() => {
+        if (basketProgressVal > 0) {
+          // decrease progress very slowly to make the phase easier
+          basketProgressVal -= 0.1;
+          if (basketProgressVal < 0) basketProgressVal = 0;
+          basketFill.style.width = basketProgressVal + '%';
+        }
+      }, 200);
+      // attach click handler to dedicated pull button
+      document.getElementById('pullBtn').addEventListener('click', processPull);
+    }
+    function handlePullKey(e) {
+      if (e.key === ' ' || e.code === 'Space') {
+        processPull();
+      }
+    }
+    function handlePullClick(e) {
+      // any click on basket area triggers pull
+      // ensure click inside phase2 area
+      const area = phase2.getBoundingClientRect();
+      if (e.clientY >= area.top && e.clientY <= area.bottom) {
+        processPull();
+      }
+    }
+    function processPull() {
+      // Determine power bar's centre percentage (arrow is narrow; treat its centre as the same as its left position)
+      const barCentre = powerPos;
+      const greenStartPerc = parseFloat(greenZone.style.left);
+      const greenWidthPerc = parseFloat(greenZone.style.width);
+      const greenEndPerc = greenStartPerc + greenWidthPerc;
+      if (barCentre >= greenStartPerc && barCentre <= greenEndPerc) {
+        // Good pull: increase progress modestly
+        basketProgressVal += 5 + Math.random() * 3;
+        if (basketProgressVal > 100) basketProgressVal = 100;
+        // reposition green zone after each successful pull
+        setGreenZone();
+      } else {
+        // Bad pull: reset progress
+        basketProgressVal = 0;
+      }
+      basketFill.style.width = basketProgressVal + '%';
+      if (basketProgressVal >= 100) {
+        endPhase2();
+      }
+    }
+    function endPhase2() {
+      cancelAnimationFrame(powerAnim);
+      // stop the decay of basket progress
+      clearInterval(basketDecayInterval);
+      // detach click handler from pull button
+      const btn = document.getElementById('pullBtn');
+      if (btn) {
+        btn.removeEventListener('click', processPull);
+      }
+      startPhase3();
+    }
+
+    // ************** Phase 3: Puzzle **************
+    /* Define polyomino pieces to fill a 5x5 grid as in the provided image.
+       Each piece consists of an array of [x, y] cells relative to the top-left
+       of the piece bounding box. Colours are chosen to resemble the sample. */
+    const puzzlePieces = [
+      // Blue horizontal line: four cells in a single row
+      { id: 'blue', cells: [[0,0],[1,0],[2,0],[3,0]], color: '#4285f4' },
+      // Pink vertical line: four cells in a single column
+      { id: 'pink', cells: [[0,0],[0,1],[0,2],[0,3]], color: '#f934ca' },
+      // Red 2×2 square
+      { id: 'red', cells: [[0,0],[1,0],[0,1],[1,1]], color: '#ff0000' },
+      // Yellow rotated and mirrored L (4 cells): three across the top and one beneath the far right
+      { id: 'yellow', cells: [[0,0],[1,0],[2,0],[2,1]], color: '#ffff00' },
+      // Green T‑shaped piece (4 cells): three along the bottom with one centered above
+      { id: 'green', cells: [[1,0],[0,1],[1,1],[2,1]], color: '#34a853' },
+      // Orange skewed line (5 cells): horizontal run of three with a cell above the left end and one below the right end
+      { id: 'orange', cells: [[0,0],[0,1],[1,1],[2,1],[2,2]], color: '#ff9900' }
+    ];
+    // Maintain a record of occupied board cells when pieces are placed.
+    let occupiedCells = {};
+    let placedPieces = 0;
+
+    function createBoard() {
+      // Create 25 board cells (5x5 grid) for visual grid
+      for (let i = 0; i < 25; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        board.appendChild(cell);
+      }
+    }
+    /* Build puzzle pieces in piecesContainer. Each piece will be a group of 4 squares. */
+    function createPieces() {
+      puzzlePieces.forEach((piece, index) => {
+        const el = document.createElement('div');
+        el.className = 'piece';
+        el.dataset.id = piece.id;
+        el.dataset.rotation = '0';
+        // Create squares for this piece
+        piece.cells.forEach(([x, y]) => {
+          const sq = document.createElement('div');
+          sq.className = 'square';
+          sq.style.background = piece.color;
+          // Position each square using CSS grid relative to the piece's bounding box
+          sq.style.gridColumnStart = x + 1;
+          sq.style.gridRowStart = y + 1;
+          el.appendChild(sq);
+        });
+        // Calculate bounding dimensions (max x/y + 1) to size the piece container and grid
+        let maxX = 0;
+        let maxY = 0;
+        piece.cells.forEach(([x, y]) => {
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        });
+        const cols = maxX + 1;
+        const rows = maxY + 1;
+        el.style.width = (cols * 60) + 'px';
+        el.style.height = (rows * 60) + 'px';
+        el.style.gridTemplateColumns = `repeat(${cols}, 60px)`;
+        el.style.gridTemplateRows = `repeat(${rows}, 60px)`;
+        // After sizing the piece, compute a random starting position within the puzzle container.
+        const container = document.getElementById('puzzleContainer');
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+        const pieceWidth = cols * 60;
+        const pieceHeight = rows * 60;
+        // Left position: start at least 50px from left border and keep inside container
+        const maxLeft = Math.max(0, containerWidth - pieceWidth - 50);
+        const leftPos = 50 + Math.random() * maxLeft;
+        // Top position: below the board region (~300px) with a bit of randomness but within container
+        const minTop = 330;
+        const maxTop = Math.max(minTop, containerHeight - pieceHeight - 10);
+        const topPos = minTop + Math.random() * (maxTop - minTop);
+        el.style.left = leftPos + 'px';
+        el.style.top = topPos + 'px';
+        // Dragging (no rotation button needed)
+        el.addEventListener('mousedown', (e) => startDrag(e, el));
+        piecesContainer.appendChild(el);
+      });
+    }
+    let dragData = null;
+    function startDrag(e, element) {
+      // If the piece was previously placed on the board, remove its occupied cells so it can be moved again
+      if (element.dataset.onboard === 'true') {
+        // Free occupied cells
+        const occupied = JSON.parse(element.dataset.occupied || '[]');
+        occupied.forEach(key => {
+          delete occupiedCells[key];
+        });
+        // decrease placed pieces count
+        if (placedPieces > 0) placedPieces--;
+        // mark piece as no longer placed
+        element.classList.remove('placed');
+        delete element.dataset.onboard;
+        delete element.dataset.occupied;
+      }
+      dragData = {
+        el: element,
+        offsetX: e.clientX - element.offsetLeft,
+        offsetY: e.clientY - element.offsetTop
+      };
+      document.addEventListener('mousemove', onDrag);
+      document.addEventListener('mouseup', endDrag);
+    }
+    function onDrag(e) {
+      if (!dragData) return;
+      const { el, offsetX, offsetY } = dragData;
+      el.style.left = (e.clientX - offsetX) + 'px';
+      el.style.top = (e.clientY - offsetY) + 'px';
+    }
+    function endDrag() {
+      if (!dragData) return;
+      const { el } = dragData;
+      document.removeEventListener('mousemove', onDrag);
+      document.removeEventListener('mouseup', endDrag);
+      // Check placement on drop
+      checkPiecePlacement(el);
+      dragData = null;
+    }
+    function rotatePiece(el) {
+      let rot = parseInt(el.dataset.rotation, 10);
+      rot = (rot + 90) % 360;
+      el.dataset.rotation = rot;
+      el.style.transform = `rotate(${rot}deg)`;
+    }
+    // Convert piece cell coords to board coords based on piece rotation
+    function getRotatedCells(pieceId, rotation) {
+      const cells = puzzlePieces.find(p => p.id === pieceId).cells;
+      // clone
+      const result = cells.map(([x,y]) => [x,y]);
+      const times = rotation / 90;
+      for (let i = 0; i < times; i++) {
+        // rotate 90 degrees: (x, y) -> (y, 3 - x)
+        for (let j = 0; j < result.length; j++) {
+          const [x0, y0] = result[j];
+          // use dimension 5 (indices 0..4) for rotation
+          result[j] = [y0, 4 - x0];
+        }
+      }
+      return result;
+    }
+    function checkPiecePlacement(el) {
+      const id = el.dataset.id;
+      const rotation = parseInt(el.dataset.rotation, 10);
+      const rotatedCells = getRotatedCells(id, rotation);
+      const boardRect = board.getBoundingClientRect();
+      const containerRect = document.getElementById('puzzleContainer').getBoundingClientRect();
+      const cellSize = boardRect.width / 5;
+      // Determine drop offset relative to board.
+      const elRect = el.getBoundingClientRect();
+      // Compute offset of drop relative to board by comparing viewport positions
+      const offsetX = elRect.left - boardRect.left;
+      const offsetY = elRect.top - boardRect.top;
+      // Base column/row are the nearest grid cell indices where the top-left of the piece should snap
+      const baseCol = Math.round(offsetX / cellSize);
+      const baseRow = Math.round(offsetY / cellSize);
+      // Build list of board cells this piece would occupy
+      const newCells = [];
+      for (let i = 0; i < rotatedCells.length; i++) {
+        const [cx, cy] = rotatedCells[i];
+        const row = baseRow + cy;
+        const col = baseCol + cx;
+        // Check boundaries of the 5×5 board
+        if (row < 0 || col < 0 || row > 4 || col > 4) {
+          return; // Out of bounds: cancel placement
+        }
+        const key = row + '-' + col;
+        // Check collision with existing occupied cells
+        if (occupiedCells[key]) {
+          return; // Overlaps another piece
+        }
+        newCells.push({ row, col, key });
+      }
+      // All checks passed: snap the piece to the aligned grid position
+      // Compute the board's position relative to the container (offsetParent of pieces)
+      const boardOffsetX = boardRect.left - containerRect.left;
+      const boardOffsetY = boardRect.top - containerRect.top;
+      // Snap the piece to the computed grid cell within the container
+      el.style.left = (boardOffsetX + baseCol * cellSize) + 'px';
+      el.style.top = (boardOffsetY + baseRow * cellSize) + 'px';
+      el.style.position = 'absolute';
+      // Reset rotation transform so the piece aligns with the grid (no rotation in this puzzle)
+      el.style.transform = '';
+      el.classList.add('placed');
+      // Mark these board cells as occupied
+      const keys = [];
+      newCells.forEach(c => {
+        occupiedCells[c.key] = true;
+        keys.push(c.key);
+      });
+      el.dataset.onboard = 'true';
+      el.dataset.occupied = JSON.stringify(keys);
+      placedPieces++;
+      // Check completion: all pieces placed
+      if (placedPieces === puzzlePieces.length) {
+        finishGame();
+      }
+    }
+    function startPhase3() {
+      showPhase(phase3);
+      placedPieces = 0;
+      occupiedCells = {};
+      // Clear board and pieces container
+      board.innerHTML = '';
+      piecesContainer.innerHTML = '';
+      createBoard();
+      createPieces();
+    }
+
+    function finishGame() {
+      stopTimer();
+      phase3.style.display = 'none';
+      endScreen.style.display = 'block';
+      // Draw the final time onto the canvas
+      updateFinalTimeCanvas(timer);
+    }
+
+    // ************** Game flow **************
+    playBtn.addEventListener('click', () => {
+      menu.style.display = 'none';
+      hud.style.display = 'block';
+      gameStarted = true;
+      startTimer();
+      startPhase1();
+    });
+    restartBtn.addEventListener('click', () => {
+      // Reset game to initial state
+      endScreen.style.display = 'none';
+      hud.style.display = 'block';
+      gameStarted = true;
+      startTimer();
+      startPhase1();
+    });
+  </script>
+</body>
+</html>
